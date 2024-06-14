@@ -1,11 +1,13 @@
+import logging
 from aiogram import Bot, Dispatcher, F
 import asyncio
 import os
 from dotenv import load_dotenv
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums.parse_mode import ParseMode
+import signal
 
-# from database.Database import DataBase
+from database.Database import DataBase
 # Подключаем роутеры
 from handlers.start.start import start_router
 from core.menu import set_commands
@@ -40,13 +42,38 @@ dp.message.register(success_payment, F.successful_payment)
 
 async def start():
     try:
-        # db = DataBase()
+        db = DataBase()
         # await db.drop_and_create_db()
-        # await db.create_db()
+        await db.create_db()
+
+        # Получаем текущий event loop
+        loop = asyncio.get_running_loop()
+
+        
+        def signal_handler(signum, frame):
+            logging.info("Остановка бота...")
+
+            # Создаем список задач для ожидания
+            tasks = [
+                bot.close(),
+                dp.stop_polling()
+            ]
+
+            # Ожидаем завершения всех задач
+            asyncio.create_task(asyncio.gather(*tasks))
+
+            # Останавливаем event loop после завершения задач
+            loop.call_soon_threadsafe(loop.stop)
+
+        signal.signal(signal.SIGINT, signal_handler)
+
+        logging.info("Запуск бота...")
         await set_commands(bot)
-        await dp.start_polling(bot, ship_updates=True)
+        await dp.start_polling(bot, ship_updates=False)
     except KeyboardInterrupt:
-        print("Программа была остановлена пользователем.")
+        logging.info("Программа была остановлена пользователем.")
+    except Exception as e:
+        logging.error(f"Произошла ошибка: {e}")
     finally:
         await bot.session.close()
 
@@ -54,12 +81,3 @@ async def start():
 
 if __name__ == '__main__':
     asyncio.run(start())
-
-# if __name__ == '__main__':
-#     loop = asyncio.get_event_loop()
-#     try:
-#         loop.run_until_complete(start())
-#     except KeyboardInterrupt:
-#         print("Программа была остановлена пользователем.")
-#     finally:
-#         loop.close()

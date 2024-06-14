@@ -81,7 +81,7 @@ async def form_buy_basket(call: CallbackQuery):
         title=f'Оформить заказ',
         description=f'Форма оплаты для товаров отложенных в корзине',
         provider_token=os.getenv('TOKEN_YOUKASSA'),
-        payload=f'basket_{"_".join(str(item.id) for item in all_product)}',
+        payload=f'basket_{",".join(str(item.product) for item in all_product)}',  # ID продуктов через запятую
         currency='rub',
         prices=[
             LabeledPrice(

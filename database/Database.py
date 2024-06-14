@@ -22,11 +22,11 @@ class DataBase:
     async def drop_and_create_db(self):
         async with self.async_engine.begin() as conn:
             # Удаляем все таблицы
-            await conn.run_sync(Base.metadata.drop_all)
+            # await conn.run_sync(Base.metadata.drop_all)
             # # Создаем таблицы заново
-            await conn.run_sync(Base.metadata.create_all)
-            # Вносим изменения в базу данных
             # await conn.run_sync(Base.metadata.create_all)
+            # Вносим изменения в базу данных
+            await conn.run_sync(Base.metadata.create_all)
 
     
 
