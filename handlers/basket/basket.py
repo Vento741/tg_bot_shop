@@ -1,6 +1,7 @@
 from aiogram import Bot, Router, F
 from aiogram.filters import or_f
 from aiogram.types import Message, CallbackQuery, LabeledPrice
+from database.models import Basket
 from handlers.start.start_kb import start_kb
 from core.dictionary import *
 from database.Database import DataBase
@@ -51,52 +52,51 @@ async def basket_delete_all(message: Message, bot: Bot):
 @basket_router.message(F.text == kb_go_decoration)
 async def basket_buy(message: Message, bot: Bot):
     db = DataBase()
-    all_product = await db.get_basket(message.from_user.id)
-    if all_product:
-        num_product = 0
-        summ_order = 0
-        order_id = []
-        for item in all_product:
-            num_product += 1
-            summ_order = summ_order + int(item.product_sum)
-            order_id.append(item.product)
-            product_list = []
-            for product_id in order_id:
-                products = await db.get_product_one(product_id)
-                product_list.append(products.name)
-            product_name = '\n'.join(product_list)
-        await bot.send_message(message.from_user.id, basket_order_check % (num_product, product_name, summ_order), reply_markup=order_basket(order_id, summ_order))
+    all_products = await db.get_basket(message.from_user.id)
+    if all_products:
+        product_list = []
+        total_amount = 0
+        order_ids = []
+        for item in all_products:
+            product = await db.get_product_one(item.product)
+            product_list.append(f"{product.name} ({item.quantity} шт.)")
+            total_amount += item.product_sum * item.quantity
+            order_ids.extend([item.product] * item.quantity)  # Добавляем ID продукта нужное количество раз
+        product_names = '\n'.join(product_list)
+        await bot.send_message(message.from_user.id,
+                               basket_order_check % (len(all_products), product_names, total_amount),
+                               reply_markup=order_basket(order_ids, total_amount))
     else:
         await bot.send_message(message.from_user.id, 'Ваша корзина пуста', reply_markup=start_kb())
 
-
 # Обработчик нажатия на "Оформить заказ"
+@basket_router.callback_query(F.data.startswith('buybasket_'))
 @basket_router.callback_query(F.data.startswith('buybasket_'))
 async def form_buy_basket(call: CallbackQuery):
     db = DataBase()
-    all_product = await db.get_basket(call.from_user.id)
+    all_products = await db.get_basket(call.from_user.id)
     product_list = []
-    total_amount = 0  # Инициализируем общую сумму
-
-    for product in all_product:
+    total_amount = 0
+    order_ids = []
+    for product in all_products:
         item = await db.get_product_one(product.product)
         product_list.append(item.name)
-        total_amount += item.price  # Суммируем цены всех товаров
-
+        total_amount += item.product_sum * product.quantity
+        order_ids.extend([item.product] * product.quantity)  # Добавляем ID продукта нужное количество раз
     product_name = '\n'.join(product_list)
     await call.answer()
-
+    summ = int(call.data.split('_')[-1])
     await call.bot.send_invoice(
         chat_id=call.from_user.id,
         title=f'Оформить заказ',
         description=f'Форма оплаты для товаров отложенных в корзине: {product_name}',
         provider_token=os.getenv('TOKEN_YOUKASSA'),
-        payload=f'basket_{"_".join(str(item.id) for item in all_product)}',
+        payload=f'basket_{"_".join(str(id) for id in order_ids)}',  # Передаем все ID продуктов
         currency='rub',
         prices=[
-            LabeledPrice(  # Создаем один LabeledPrice на всю сумму
+            LabeledPrice(
                 label=f'Оплата корзины',
-                amount=int(total_amount * 100)  # Указываем общую сумму в копейках
+                amount=summ * 100
             )
         ],
         start_parameter='Tg_MAGNAT_SHop',
@@ -112,3 +112,14 @@ async def form_buy_basket(call: CallbackQuery):
         reply_markup=None,
         request_timeout=60
     )
+
+
+async def add_basket(self, telegram_id, product, product_sum, quantity):
+    async with self.Session() as request:
+        request.add(Basket(
+            user_telegram_id=telegram_id,
+            product=product,
+            product_sum=product_sum,
+            quantity=quantity  # Добавляем количество
+        ))
+        await request.commit()

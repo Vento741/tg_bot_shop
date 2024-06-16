@@ -36,7 +36,7 @@ class Products(Base):
     price: Mapped[float] = mapped_column(Float)
     key_product: Mapped[str] = mapped_column(String(100))
     status_product: Mapped[int] = mapped_column(Integer)
-
+    quantity: Mapped[int] = mapped_column(Integer, default=0)
 
 class Category(Base):
     __tablename__ = "category"

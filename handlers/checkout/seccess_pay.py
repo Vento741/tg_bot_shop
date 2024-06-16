@@ -26,7 +26,7 @@ async def success_payment(message: Message, bot: Bot):
     order_status = 0
     user_name = message.successful_payment.order_info.name
     db = DataBase()
-    admins = await db.get_admins()
+
     # Проверяем тип оплаты (из корзины или напрямую)
     if payload_parts[0] == 'basket':
         product_ids = [int(id) for id in payload_parts[1].split(',')]
@@ -46,21 +46,19 @@ async def success_payment(message: Message, bot: Bot):
                    f'Заказчик: {user_name} (ID: {user_id})\n\n'
                    f'Товар: \n\n {product.name}\n'
                    f'Сумма заказа: {order_sum}')
-            
+
             # Отправляем сообщение всем админам
+            admins = await db.get_admins()
             for admin in admins:
                 await bot.send_message(admin.telegram_id, msg)
 
             # Добавляем ссылку в список
-            links.append(f"{product.name}: {product.key_product}")
+            links.append(product.key_product)
         else:
             logging.error(f"Продукт с ID {product_id} не найден")
-            # Отправляем сообщение об ошибке пользователю
-            await bot.send_message(user_id, f"Произошла ошибка: продукт с ID {product_id} не найден. Пожалуйста, обратитесь к администратору.")
-            # Отправляем сообщение об ошибке администратору
-            for admin in admins:
-                await bot.send_message(admin.telegram_id, f"Ошибка: продукт с ID {product_id} не найден при обработке заказа от пользователя {user_id}")
-            return  # Прерываем обработку заказа
+            await bot.send_message(user_id,
+                                   "Произошла ошибка при обработке заказа. Пожалуйста, обратитесь к администратору.")
+            return  # Прерываем обработку, если продукт не найден
 
     # Отправляем все ссылки пользователю
     if links:

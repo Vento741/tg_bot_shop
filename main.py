@@ -43,7 +43,7 @@ dp.message.register(success_payment, F.successful_payment)
 async def start():
     try:
         db = DataBase()
-        # await db.drop_and_create_db()
+        await db.drop_and_create_db()
         # await db.create_db()
 
         # Получаем текущий event loop

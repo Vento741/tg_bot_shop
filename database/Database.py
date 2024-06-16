@@ -19,7 +19,7 @@ class DataBase:
     async def drop_and_create_db(self):
         async with self.async_engine.begin() as conn:
             # Удаляем все таблицы
-            # await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.drop_all)
             # # Создаем таблицы заново
             await conn.run_sync(Base.metadata.create_all)
             # Вносим изменения в базу данных
@@ -169,3 +169,13 @@ class DataBase:
             result = await request.execute(select(Order).where(
                             Order.user_telegram_id == user_id))
         return result.scalars().all()
+    
+
+    async def update_product_quantity(self, product_id, new_quantity):
+        async with self.Session() as request:
+            await request.execute(
+                update(Products)
+                .where(Products.id == product_id)
+                .values(quantity=new_quantity)
+            )
+            await request.commit()
