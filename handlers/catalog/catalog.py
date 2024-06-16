@@ -3,7 +3,6 @@ from aiogram import Bot, Router, F
 from aiogram.filters import or_f
 from aiogram.types import CallbackQuery, Message, LabeledPrice
 from handlers.catalog.catalog_kb import category_kb, product_kb, product_kb_basket
-from aiogram.types import InputFile
 
 from core.dictionary import *
 from database.Database import DataBase
@@ -27,7 +26,6 @@ async def category_catalog(call: CallbackQuery):
     if products:
         for product in products:
             await call.message.answer_photo(photo=product.images, caption=f'{product.name}')
-            await call.message.answer_photo(photo=InputFile(product.images), caption=f'{product.name}')
             if await db.check_basket(call.from_user.id, product.id):
                 await call.message.answer(dictionary_card_product % (product.description, product.price),
                                           reply_markup= product_kb_basket(product.id))
@@ -95,4 +93,3 @@ async def delete_basket(call: CallbackQuery):
     await call.message.answer(f'Товар {product.name} удален из корзины')
     await call.message.edit_reply_markup(reply_markup= await product_kb(product_id))
     await call.answer()
-    

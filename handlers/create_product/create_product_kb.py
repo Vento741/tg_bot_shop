@@ -4,6 +4,7 @@ from database.Database import DataBase
 from database.models import Category
 
 
+# Клавиатура для создания продукта в категории
 async def category_kb():
     db = DataBase()
     kb = InlineKeyboardBuilder()

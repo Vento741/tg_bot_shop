@@ -9,6 +9,8 @@ import os
 
 basket_router = Router()
 
+
+# Обработчик команды /basket
 @basket_router.message(or_f(F.text == '/basket', F.text == f'{start_basket_text}'))
 async def home_basket(message: Message, bot: Bot):
     db = DataBase()
@@ -24,6 +26,7 @@ async def home_basket(message: Message, bot: Bot):
         await bot.send_message(message.from_user.id, f'{basket_null}', reply_markup=start_kb())
 
 
+# Обработчик нажатия на категорию
 @basket_router.callback_query(F.data.startswith('d_basket_'))
 async def basket_delete_one(call: CallbackQuery, bot: Bot):
     product_id = int(call.data.split('_')[-1])
@@ -36,6 +39,7 @@ async def basket_delete_one(call: CallbackQuery, bot: Bot):
     await call.answer()
 
 
+# Если нажали "Очистить корзину"
 @basket_router.message(F.text == kb_clear_basket)
 async def basket_delete_all(message: Message, bot: Bot):
     db = DataBase()
@@ -43,6 +47,7 @@ async def basket_delete_all(message: Message, bot: Bot):
     await bot.send_message(message.from_user.id, f'{basket_ok_delete_full}', reply_markup=start_kb())
 
 
+# Если нажали "Оформить заказ"
 @basket_router.message(F.text == kb_go_decoration)
 async def basket_buy(message: Message, bot: Bot):
     db = DataBase()
@@ -65,28 +70,33 @@ async def basket_buy(message: Message, bot: Bot):
         await bot.send_message(message.from_user.id, 'Ваша корзина пуста', reply_markup=start_kb())
 
 
+# Обработчик нажатия на "Оформить заказ"
 @basket_router.callback_query(F.data.startswith('buybasket_'))
 async def form_buy_basket(call: CallbackQuery):
     db = DataBase()
     all_product = await db.get_basket(call.from_user.id)
     product_list = []
+    total_amount = 0  # Инициализируем общую сумму
+
     for product in all_product:
         item = await db.get_product_one(product.product)
         product_list.append(item.name)
+        total_amount += item.price  # Суммируем цены всех товаров
+
     product_name = '\n'.join(product_list)
     await call.answer()
-    summ = int(call.data.split('_')[-1])
+
     await call.bot.send_invoice(
         chat_id=call.from_user.id,
         title=f'Оформить заказ',
-        description=f'Форма оплаты для товаров отложенных в корзине',
+        description=f'Форма оплаты для товаров отложенных в корзине: {product_name}',
         provider_token=os.getenv('TOKEN_YOUKASSA'),
-        payload=f'basket_{",".join(str(item.product) for item in all_product)}',  # ID продуктов через запятую
+        payload=f'basket_{"_".join(str(item.id) for item in all_product)}',
         currency='rub',
         prices=[
-            LabeledPrice(
-                label=f'Оформить заказ',
-                amount=summ * 100
+            LabeledPrice(  # Создаем один LabeledPrice на всю сумму
+                label=f'Оплата корзины',
+                amount=int(total_amount * 100)  # Указываем общую сумму в копейках
             )
         ],
         start_parameter='Tg_MAGNAT_SHop',

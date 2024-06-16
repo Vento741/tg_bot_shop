@@ -44,7 +44,7 @@ async def start():
     try:
         db = DataBase()
         # await db.drop_and_create_db()
-        await db.create_db()
+        # await db.create_db()
 
         # Получаем текущий event loop
         loop = asyncio.get_running_loop()
