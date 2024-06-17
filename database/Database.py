@@ -22,8 +22,6 @@ class DataBase:
             await conn.run_sync(Base.metadata.drop_all)
             # # Создаем таблицы заново
             await conn.run_sync(Base.metadata.create_all)
-            # Вносим изменения в базу данных
-            # await conn.run_sync(Base.metadata.create_all)
 
     
     # Функции для работы с пользователями
@@ -48,10 +46,9 @@ class DataBase:
     
     # Функции для работы с админами
     async def get_admin(self, admin_id):
-        # Функция для получения админа
         async with self.Session() as request:
-            result = await request.execute(select(Admin).where(Admin.admin_id == admin_id))
-        return result.scalar()
+            result = await request.execute(select(Admin).where(Admin.telegram_id == admin_id))  # Исправлено
+            return result.scalar()
     
 
     # Функция для получения всех админов
@@ -113,13 +110,14 @@ class DataBase:
     
 
     # Функции для работы с корзиной
-    async def add_basket(self, telegram_id, product, product_sum):
+    async def add_basket(self, telegram_id, product, product_sum, quantity):
         # Функция для добавления продукта в корзину
         async with self.Session() as request:
             request.add(Basket(
                 user_telegram_id=telegram_id,
                 product=product,
-                product_sum=product_sum
+                product_sum=product_sum,
+                quantity=quantity
             ))
             await request.commit()
 
@@ -171,11 +169,11 @@ class DataBase:
         return result.scalars().all()
     
 
-    async def update_product_quantity(self, product_id, new_quantity):
+    async def update_product_links(self, product_id, new_links):
         async with self.Session() as request:
             await request.execute(
                 update(Products)
                 .where(Products.id == product_id)
-                .values(quantity=new_quantity)
+                .values(links=new_links)
             )
             await request.commit()

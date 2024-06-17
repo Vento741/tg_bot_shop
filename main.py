@@ -11,7 +11,8 @@ from database.Database import DataBase
 # Подключаем роутеры
 from handlers.start.start import start_router
 from core.menu import set_commands
-from handlers.create_product.create_product import create_router
+# from handlers.create_product.create_product import create_router
+from handlers.admin.admin import admin_router
 from handlers.catalog.catalog import catalog_router
 from handlers.checkout.seccess_pay import *
 from handlers.basket.basket import basket_router
@@ -32,7 +33,7 @@ async def start_bot(bot: Bot):
 
 dp.startup.register(start_bot)
 dp.include_router(start_router)
-dp.include_router(create_router)
+dp.include_router(admin_router)
 dp.include_router(catalog_router)
 dp.include_router(basket_router)
 dp.include_router(order_router)
@@ -44,7 +45,6 @@ async def start():
     try:
         db = DataBase()
         await db.drop_and_create_db()
-        # await db.create_db()
 
         # Получаем текущий event loop
         loop = asyncio.get_running_loop()

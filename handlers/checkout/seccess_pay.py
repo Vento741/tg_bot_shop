@@ -1,3 +1,4 @@
+import json
 from aiogram import Bot
 from aiogram.types import Message, PreCheckoutQuery
 from database.Database import DataBase
@@ -54,6 +55,9 @@ async def success_payment(message: Message, bot: Bot):
 
             # Добавляем ссылку в список
             links.append(product.key_product)
+            links.extend(json.loads(product.links))
+            # Удаляем ссылки из товара
+            await db.update_product_links(product_id, '[]')  # Обновляем поле links пустым списком
         else:
             logging.error(f"Продукт с ID {product_id} не найден")
             await bot.send_message(user_id,

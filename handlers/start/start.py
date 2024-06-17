@@ -27,21 +27,21 @@ async def start_register(call: CallbackQuery, state: FSMContext):
     await call.answer()
 
 
-@start_router.message(RegisterState.name)
-async def username_input(message: Message, state: FSMContext, bot: Bot):
-    await bot.send_message(message.from_user.id, f"Укажите ваш номер телефона")
-    await state.update_data(name=message.text)
-    await state.set_state(RegisterState.phone)
+# @start_router.message(RegisterState.name)
+# async def username_input(message: Message, state: FSMContext, bot: Bot):
+#     await bot.send_message(message.from_user.id, f"Укажите ваш номер телефона")
+#     await state.update_data(name=message.text)
+#     await state.set_state(RegisterState.phone)
 
 
-@start_router.message(RegisterState.phone)
-async def phone_input(message: Message, state: FSMContext, bot: Bot):
-    if (re.findall('^\+?[7][-\(]?\d{3}\)?-?\d{3}-?\d{2}-?\d{2}$', message.text)):
-        db = DataBase()
-        await state.update_data(phone=message.text)
-        reg_data = await state.get_data()
-        await db.add_user(reg_data["name"], reg_data["phone"], message.from_user.id)
-        await bot.send_message(message.from_user.id, f"Вы успешно зарегистрировались", reply_markup=start_kb())
-        await state.clear()
-    else:
-        await bot.send_message(message.from_user.id, f"Некорректный номер телефона")
+# @start_router.message(RegisterState.phone)
+# async def phone_input(message: Message, state: FSMContext, bot: Bot):
+#     if (re.findall('^\+?[7][-\(]?\d{3}\)?-?\d{3}-?\d{2}-?\d{2}$', message.text)):
+#         db = DataBase()
+#         await state.update_data(phone=message.text)
+#         reg_data = await state.get_data()
+#         await db.add_user(reg_data["name"], reg_data["phone"], message.from_user.id)
+#         await bot.send_message(message.from_user.id, f"Вы успешно зарегистрировались", reply_markup=start_kb())
+#         await state.clear()
+#     else:
+#         await bot.send_message(message.from_user.id, f"Некорректный номер телефона")
