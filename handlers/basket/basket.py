@@ -17,12 +17,34 @@ async def home_basket(message: Message, bot: Bot):
     db = DataBase()
     products = await db.get_basket(message.from_user.id)
     if products:
+        grouped_products = {}
+        total_amount = 0
+        order_ids = []
         for product in products:
-            item = await db.get_product_one(product.product)
-            msg = await bot.send_photo(message.from_user.id, photo=item.images, caption=f'<b>{item.name}</b>',
-                                       reply_markup=basket_kb())
-            await bot.send_message(message.from_user.id, dictionary_card_product % (item.description, item.price),
-                                   reply_markup=delete_basket(msg.message_id, item.id))
+            if product.product not in grouped_products:
+                grouped_products[product.product] = {
+                    'item': await db.get_product_one(product.product),
+                    'quantity': 0
+                }
+            grouped_products[product.product]['quantity'] += product.quantity
+            total_amount += product.product_sum * product.quantity
+
+        basket_text = ''
+        for product_id, data in grouped_products.items():
+            item = data['item']
+            quantity = data['quantity']
+            basket_text += f'<b>{item.name}</b>\nКоличество: {quantity}\nЦена: {item.price * quantity} руб.\n\n'
+            order_ids.extend([item.id] * quantity)
+
+            # Сначала отправляем сообщение и сохраняем результат в msg
+            msg = await bot.send_message(message.from_user.id, basket_text) 
+
+            # Затем отправляем сообщение с кнопкой "Удалить", используя msg.message_id
+            await bot.send_message(message.from_user.id, dictionary_card_product % (item.description, item.price*quantity),
+                                   reply_markup=delete_basket(msg.message_id, product.id)) 
+
+        await bot.send_message(message.from_user.id, f'Общая сумма: {total_amount} руб.',
+                               reply_markup=order_basket(order_ids, total_amount))
     else:
         await bot.send_message(message.from_user.id, f'{basket_null}', reply_markup=start_kb())
 
@@ -30,15 +52,15 @@ async def home_basket(message: Message, bot: Bot):
 # Обработчик нажатия на категорию
 @basket_router.callback_query(F.data.startswith('d_basket_'))
 async def basket_delete_one(call: CallbackQuery, bot: Bot):
-    product_id = int(call.data.split('_')[-1])
-    message_id = int(call.data.split('_')[-2])
+    _, _, message_id, basket_id = call.data.split('_')
+    message_id = int(message_id)
+    basket_id = int(basket_id)
     db = DataBase()
-    await db.delete_basket_one(product_id, call.from_user.id)
+    await db.delete_basket_one(basket_id, call.from_user.id)
     await call.message.answer(f'{basket_ok_delete}')
     await call.message.edit_reply_markup(reply_markup=None)
-    await bot.delete_message(message_id, call.from_user.id)
+    await bot.delete_message(call.message.chat.id, message_id)  # Используем call.message.chat.id
     await call.answer()
-
 
 # Если нажали "Очистить корзину"
 @basket_router.message(F.text == kb_clear_basket)
@@ -69,8 +91,8 @@ async def basket_buy(message: Message, bot: Bot):
     else:
         await bot.send_message(message.from_user.id, 'Ваша корзина пуста', reply_markup=start_kb())
 
+
 # Обработчик нажатия на "Оформить заказ"
-@basket_router.callback_query(F.data.startswith('buybasket_'))
 @basket_router.callback_query(F.data.startswith('buybasket_'))
 async def form_buy_basket(call: CallbackQuery):
     db = DataBase()
@@ -78,14 +100,16 @@ async def form_buy_basket(call: CallbackQuery):
     product_list = []
     total_amount = 0
     order_ids = []
-    for product in all_products:
+    for product in all_products:  # product - это объект Basket
         item = await db.get_product_one(product.product)
         product_list.append(item.name)
-        total_amount += item.product_sum * product.quantity
-        order_ids.extend([item.product] * product.quantity)  # Добавляем ID продукта нужное количество раз
+        total_amount += product.product_sum * product.quantity
+        order_ids.extend([product.product] * product.quantity)  # Используем product.product
     product_name = '\n'.join(product_list)
     await call.answer()
     summ = int(call.data.split('_')[-1])
+    summ = int(summ) // 100
+    print(summ)
     await call.bot.send_invoice(
         chat_id=call.from_user.id,
         title=f'Оформить заказ',

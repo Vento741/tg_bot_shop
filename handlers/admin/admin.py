@@ -1,6 +1,7 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
+
 from core.dictionary import *
 from database.Database import DataBase
 from handlers.admin.admin_state import AddProduct
@@ -19,10 +20,11 @@ async def cmd_cancel(message: Message, state: FSMContext, bot: Bot):
 
 
 @admin_router.message(F.text == '/admin')
-async def admin_panel(message: Message, state: FSMContext ,bot: Bot):
+async def admin_panel(message: Message, state: FSMContext, bot: Bot):
     db = DataBase()
     admin = await db.get_admin(message.from_user.id)
     if admin is not None:
+        await state.update_data(db=db)  # Сохраняем db в state
         await bot.send_message(message.from_user.id, f'Выберите категорию для добавления товара:', reply_markup=await category_kb())  # Запрос выбора категории
         await state.set_state(AddProduct.ENTER_CATEGORY)
     else:
@@ -89,14 +91,18 @@ async def enter_quantity(message: Message, state: FSMContext, bot: Bot):
 
 
 @admin_router.message(AddProduct.ENTER_LINKS)
-async def enter_links(message: Message, state: FSMContext, bot: Bot):
+async def enter_links(message: Message, state: FSMContext):
     data = await state.get_data()
     links = message.text.split('\n')
+    await state.update_data(links=links)  # Сохраняем ссылки в state
+    data = await state.get_data()  # Получаем все данные из state
+
     if len(links) == data.get('quantity'):
+        print("Содержимое data:", data)
         db = DataBase()
         await db.add_product(data.get('name'), data.get('category_id'), data.get('images'), data.get('description'),
-                             data.get('price'), data.get('quantity'), links)
-        await state.finish()
+                            data.get('price'), data.get('quantity'), data.get('links'))
+        await state.clear()
         await message.answer(f'{admin_product_add}')
     else:
         await message.answer(

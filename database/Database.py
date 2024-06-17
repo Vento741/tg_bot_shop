@@ -66,25 +66,32 @@ class DataBase:
             return result.scalars().all()
         
 
+    async def get_async_session(self):
+        """Асинхронная функция для получения сессии SQLAlchemy."""
+        async_session = async_sessionmaker(self.async_engine, expire_on_commit=False, class_=AsyncSession)
+        async with async_session() as session:
+            yield session
+
     # Функция для добавления продукта
     async def add_product(self, name, category_id, images, description, price, quantity, links):
-        # Функция для добавления продукта
-        async with self.Session() as request:
-            product = Products(
-                name=name,
-                category_id=category_id,
-                images=images,
-                description=description,
-                price=price,
-                quantity=quantity
-            )
-            request.add(product)
-            await request.commit()
-            # Создаем ссылки на товар
-            for link in links:
-                request.add(ProductLink(product_id=product.id, link=link))
-            await request.commit()
+        """Функция для добавления продукта."""
+        async for session in self.get_async_session():  # Получаем асинхронную сессию
+            async with session.begin():  # Начинаем транзакцию
+                product = Products(
+                    name=name,
+                    category_id=category_id,
+                    images=images,
+                    description=description,
+                    price=price,
+                    quantity=quantity
+                )
+                session.add(product)
+                await session.flush()  # Сохраняем продукт, чтобы получить его id
 
+                # Создаем ссылки на товар
+                for link in links:
+                    session.add(ProductLink(product_id=product.id, link=link))
+                await session.commit()  # Коммитим изменения
     
     # Функции для работы с продуктами
     async def get_product(self, category_id):
@@ -114,24 +121,24 @@ class DataBase:
     
 
     # Функции для работы с корзиной
-    async def add_basket(self, telegram_id, product, product_sum, quantity):
+    async def add_basket(self, telegram_id, product, product_price, quantity):
         # Функция для добавления продукта в корзину
         async with self.Session() as request:
             request.add(Basket(
                 user_telegram_id=telegram_id,
                 product=product,
-                product_sum=product_sum,
+                product_sum=product_price,
                 quantity=quantity
             ))
             await request.commit()
 
     
     # Функция для удаления продукта из корзины
-    async def delete_basket_one(self, product_id, user_id):
-        # Функция для удаления продукта из корзины
+    async def delete_basket_one(self, basket_id, user_id):
+    # Функция для удаления продукта из корзины
         async with self.Session() as request:
-            await request.execute(delete(Basket).where(Basket.product == product_id,
-                                                       Basket.user_telegram_id == user_id))
+            await request.execute(delete(Basket).where(Basket.id == basket_id, 
+                                                    Basket.user_telegram_id == user_id))
             await request.commit()
 
 

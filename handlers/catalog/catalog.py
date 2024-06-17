@@ -36,7 +36,7 @@ async def category_catalog(call: CallbackQuery, state: FSMContext):
                         f"Цена за шт: {product.price} руб.\n"
                         f"Доступное количество: {product.quantity}\n",
                 reply_markup=await product_kb(product.id) if not await db.check_basket(call.from_user.id,
-                                                                                       product.id) else await product_kb_basket(
+                                                                                       product.id) else product_kb_basket(
                     product.id)
             )
     else:
@@ -73,7 +73,7 @@ async def process_quantity_basket(message: Message, state: FSMContext):
 
         if product.quantity >= quantity:
             await db.add_basket(message.from_user.id, product_id, product.price, quantity)
-            await state.finish()
+            await state.clear()
             await message.answer(f"Добавлено {quantity} шт. товара {product.name} в корзину.")
         else:
             await message.answer(f"Недостаточно товара на складе. Доступно: {product.quantity} шт.")

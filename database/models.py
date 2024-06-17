@@ -61,6 +61,7 @@ class Basket(Base):
     user_telegram_id: Mapped[BigInteger] = mapped_column(BigInteger)
     product: Mapped[int] = mapped_column(Integer)
     product_sum: Mapped[float] = mapped_column(Float)
+    quantity: Mapped[int] = mapped_column(Integer)
 
 
 class Order(Base):
