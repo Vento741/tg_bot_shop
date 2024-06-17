@@ -53,11 +53,12 @@ async def success_payment(message: Message, bot: Bot):
             for admin in admins:
                 await bot.send_message(admin.telegram_id, msg)
 
-            # Добавляем ссылку в список
-            links.append(product.key_product)
-            links.extend(json.loads(product.links))
-            # Удаляем ссылки из товара
-            await db.update_product_links(product_id, '[]')  # Обновляем поле links пустым списком
+            # Получаем ссылки на товар
+            product_links = await db.get_product_links(product_id)
+            links.extend([link.link for link in product_links])
+
+            # Удаляем ссылки из базы данных
+            await db.delete_product_links(product_id)
         else:
             logging.error(f"Продукт с ID {product_id} не найден")
             await bot.send_message(user_id,

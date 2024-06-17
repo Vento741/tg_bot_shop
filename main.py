@@ -7,7 +7,7 @@ from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums.parse_mode import ParseMode
 import signal
 
-from database.Database import DataBase
+# from database.Database import DataBase
 # Подключаем роутеры
 from handlers.start.start import start_router
 from core.menu import set_commands
@@ -43,8 +43,8 @@ dp.message.register(success_payment, F.successful_payment)
 
 async def start():
     try:
-        db = DataBase()
-        await db.drop_and_create_db()
+        # db = DataBase()
+        # await db.drop_and_create_db()
 
         # Получаем текущий event loop
         loop = asyncio.get_running_loop()

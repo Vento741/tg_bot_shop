@@ -1,7 +1,6 @@
-from sqlalchemy import Integer, String, Float, Text, BIGINT
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import Integer, String, Float, Text, BigInteger, ForeignKey
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy import BigInteger
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -13,7 +12,6 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(100), nullable=False)
-    userphone: Mapped[str] = mapped_column(String(100))
     telegram_id: Mapped[BigInteger] = mapped_column(BigInteger)
 
 
@@ -34,9 +32,21 @@ class Products(Base):
     images: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text)
     price: Mapped[float] = mapped_column(Float)
-    key_product: Mapped[str] = mapped_column(String(100))
     status_product: Mapped[int] = mapped_column(Integer)
     quantity: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ProductLink(Base):
+    __tablename__ = "product_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    product_id: Mapped[int] = mapped_column(Integer, ForeignKey('product.id'))
+    link: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # Связь с продуктом
+    product: Mapped["Products"] = relationship("Products", backref="links")
+
+
 
 class Category(Base):
     __tablename__ = "category"

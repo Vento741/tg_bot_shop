@@ -22,9 +22,20 @@ async def start(message: Message, bot: Bot):
 
 @start_router.callback_query(F.data.startswith("register"))
 async def start_register(call: CallbackQuery, state: FSMContext):
-    await call.message.answer("Для начала укажите Ваше имя")
+    await call.message.answer("Укажите Ваше имя")
     await state.set_state(RegisterState.name)
     await call.answer()
+
+
+
+@start_router.message(RegisterState.name)
+async def username_input(message: Message, state: FSMContext, bot: Bot):
+    await state.update_data(name=message.text)
+    db = DataBase()
+    reg_data = await state.get_data()
+    await db.add_user(reg_data["name"], message.from_user.id)
+    await bot.send_message(message.from_user.id, f"Вы успешно зарегистрировались", reply_markup=start_kb())
+    await state.clear()
 
 
 # @start_router.message(RegisterState.name)

@@ -1,94 +1,87 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
 from core.dictionary import *
 from database.Database import DataBase
-from handlers.create_product.create_product_kb import *
+from handlers.admin.admin_state import AddProduct
+from handlers.admin.admin_kb import *
 import json
 
 admin_router = Router()
 
 
-class AddProduct(StatesGroup):
-    ENTER_NAME = State()
-    ENTER_CATEGORY = State()
-    ENTER_IMAGES = State()
-    ENTER_DESCRIPTION = State()
-    ENTER_PRICE = State()
-    ENTER_KEY = State()
-    ENTER_QUANTITY = State()
-    ENTER_LINKS = State()
+# Обработчик команды отмены
+@admin_router.message(F.text.lower() == "отмена")
+async def cmd_cancel(message: Message, state: FSMContext, bot: Bot):
+    await state.clear()
+    await bot.send_message(message.from_user.id, cmd_cancel_text)
+
 
 
 @admin_router.message(F.text == '/admin')
-async def admin_panel(message: Message, bot: Bot):
+async def admin_panel(message: Message, state: FSMContext ,bot: Bot):
     db = DataBase()
     admin = await db.get_admin(message.from_user.id)
     if admin is not None:
         await bot.send_message(message.from_user.id, f'Выберите категорию для добавления товара:', reply_markup=await category_kb())  # Запрос выбора категории
+        await state.set_state(AddProduct.ENTER_CATEGORY)
     else:
         await bot.send_message(message.from_user.id, f'{admin_not_found}')
 
 
-@admin_router.callback_query(F.data.startswith('add_product_category_'))
+@admin_router.callback_query(AddProduct.ENTER_CATEGORY)
 async def process_category_selection(call: CallbackQuery, state: FSMContext):
     category_id = int(call.data.split('_')[-1])
-    await state.update_data(category_id=category_id)  # Сохраняем выбранную категорию
-    await state.set_state(AddProduct.ENTER_NAME)  # Запускаем процесс создания товара
     await call.message.answer(f'{admin_enter_name}')
+    await state.update_data(category_id=category_id)  # Сохраняем выбранную категорию
+    await call.message.edit_reply_markup(reply_markup=None)
     await call.answer()
+    await state.set_state(AddProduct.ENTER_NAME)  # Запускаем процесс создания товара
 
 
 @admin_router.message(AddProduct.ENTER_NAME)
-async def enter_name(message: Message, state: FSMContext):
+async def enter_name(message: Message, state: FSMContext, bot: Bot):
+    await bot.send_message(message.from_user.id, f'{admin_enter_images}', reply_markup=cancel_kb)
     await state.update_data(name=message.text)
-    await state.set_state(AddProduct.ENTER_CATEGORY)
-    await message.answer(f'{admin_enter_category}', reply_markup=await category_kb())
-
-
-@admin_router.callback_query(F.data.startswith('add_product_category_'))
-async def enter_category(call: CallbackQuery, state: FSMContext):
-    category_id = int(call.data.split('_')[-1])
-    await state.update_data(category_id=category_id)
     await state.set_state(AddProduct.ENTER_IMAGES)
-    await call.message.answer(f'{admin_enter_images}')
-    await call.answer()
+
 
 
 @admin_router.message(AddProduct.ENTER_IMAGES)
-async def enter_images(message: Message, state: FSMContext):
-    await state.update_data(images=message.text)
-    await state.set_state(AddProduct.ENTER_DESCRIPTION)
-    await message.answer(f'{admin_enter_description}')
-
+async def enter_images(message: Message, state: FSMContext, bot: Bot):
+    if message.photo is not None:
+        await bot.send_message(message.from_user.id, f'{admin_enter_description}', reply_markup=cancel_kb)
+        await state.update_data(images=message.photo[-1].file_id)
+        await state.set_state(AddProduct.ENTER_DESCRIPTION)
+    else:
+        await bot.send_message(message.from_user.id, 'Нужно прикрепить картинку')
 
 @admin_router.message(AddProduct.ENTER_DESCRIPTION)
-async def enter_description(message: Message, state: FSMContext):
+async def enter_description(message: Message, state: FSMContext, bot: Bot):
+    await bot.send_message(message.from_user.id, f'{admin_enter_price}', reply_markup=cancel_kb)
     await state.update_data(description=message.text)
     await state.set_state(AddProduct.ENTER_PRICE)
-    await message.answer(f'{admin_enter_price}')
 
 
 @admin_router.message(AddProduct.ENTER_PRICE)
-async def enter_price(message: Message, state: FSMContext):
-    try:
+async def enter_price(message: Message, state: FSMContext, bot: Bot):
+    if message.text.isdigit():
         price = float(message.text)
         await state.update_data(price=price)
         await state.set_state(AddProduct.ENTER_QUANTITY)  # Переходим к состоянию ввода количества
-        await message.answer(f'{admin_enter_quantity}')  # Запрос количества
-    except ValueError:
+        await bot.send_message.answer(message.from_user.id, f'{admin_enter_quantity}')  # Запрос количества
+    else:
         await message.answer(f'{admin_error_price}')
 
 
 @admin_router.message(AddProduct.ENTER_QUANTITY)
-async def enter_quantity(message: Message, state: FSMContext):
+async def enter_quantity(message: Message, state: FSMContext, bot: Bot):
     try:
         quantity = int(message.text)
         if quantity > 0:
             await state.update_data(quantity=quantity)
-            await state.set_state(AddProduct.ENTER_LINKS)  # Переходим к состоянию ввода ссылок
-            await message.answer(f'{admin_enter_links}')  # Запрос ссылок
+            await state.set_state(AddProduct.ENTER_LINKS)
+            await bot.send_message.answer(f'Введите {quantity} ссылок на товар, каждую на новой строке:')
         else:
             await message.answer(f'{admin_error_quantity}')
     except ValueError:
@@ -96,16 +89,15 @@ async def enter_quantity(message: Message, state: FSMContext):
 
 
 @admin_router.message(AddProduct.ENTER_LINKS)
-async def enter_links(message: Message, state: FSMContext):
+async def enter_links(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
-    links = message.text.split('\n')  # Разделяем ссылки по переносам строк
-    if len(links) == data.get('quantity'):  # Проверяем количество ссылок
-        await state.update_data(links=json.dumps(links))  # Сохраняем ссылки в JSON формате
+    links = message.text.split('\n')
+    if len(links) == data.get('quantity'):
         db = DataBase()
         await db.add_product(data.get('name'), data.get('category_id'), data.get('images'), data.get('description'),
-                             data.get('price'), data.get('links'), data.get('quantity'))
+                             data.get('price'), data.get('quantity'), links)
         await state.finish()
-        await message.answer(f'{admin_product_add}')
+        await bot.send_message.answer(f'{admin_product_add}')
     else:
         await message.answer(
             f'Количество ссылок не совпадает с количеством товара. Введите {data.get("quantity")} ссылок, каждую на новой строке.')

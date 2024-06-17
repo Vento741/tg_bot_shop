@@ -33,12 +33,11 @@ class DataBase:
     
 
     # Функция для добавления пользователя
-    async def add_user(self, name, phone, telegram_id):
+    async def add_user(self, name, telegram_id):
         # Функция для добавления пользователя
         async with self.Session() as request:
             request.add(User(
                 username=name,
-                userphone=phone,
                 telegram_id=telegram_id
             ))
             await request.commit()
@@ -68,17 +67,23 @@ class DataBase:
         
 
     # Функция для добавления продукта
-    async def add_product(self, name, category_id, images, description, price, key, status):
+    async def add_product(self, name, category_id, images, description, price, quantity, links, status):
         # Функция для добавления продукта
         async with self.Session() as request:
-            request.add(Products(
+            product = Products(
                 name=name,
                 category_id=category_id,
                 images=images,
                 description=description,
                 price=price,
-                key_product=key,
-                status_product=status))
+                quantity=quantity,
+                status_product=status
+            )
+            request.add(product)
+            await request.commit()
+            # Создаем ссылки на товар
+            for link in links:
+                request.add(ProductLink(product_id=product.id, link=link))
             await request.commit()
 
     
@@ -176,4 +181,14 @@ class DataBase:
                 .where(Products.id == product_id)
                 .values(links=new_links)
             )
+            await request.commit()
+
+    async def get_product_links(self, product_id):
+        async with self.Session() as request:
+            result = await request.execute(select(ProductLink).where(ProductLink.product_id == product_id))
+            return result.scalars().all()
+
+    async def delete_product_links(self, product_id):
+        async with self.Session() as request:
+            await request.execute(delete(ProductLink).where(ProductLink.product_id == product_id))
             await request.commit()
