@@ -9,6 +9,5 @@ class AddProduct(StatesGroup):
     ENTER_IMAGES = State()
     ENTER_DESCRIPTION = State()
     ENTER_PRICE = State()
-    ENTER_KEY = State()
     ENTER_QUANTITY = State()
     ENTER_LINKS = State()

@@ -69,7 +69,7 @@ async def enter_price(message: Message, state: FSMContext, bot: Bot):
         price = float(message.text)
         await state.update_data(price=price)
         await state.set_state(AddProduct.ENTER_QUANTITY)  # Переходим к состоянию ввода количества
-        await bot.send_message.answer(message.from_user.id, f'{admin_enter_quantity}')  # Запрос количества
+        await message.answer(f'{admin_enter_quantity}')  # Запрос количества
     else:
         await message.answer(f'{admin_error_price}')
 
@@ -81,7 +81,7 @@ async def enter_quantity(message: Message, state: FSMContext, bot: Bot):
         if quantity > 0:
             await state.update_data(quantity=quantity)
             await state.set_state(AddProduct.ENTER_LINKS)
-            await bot.send_message.answer(f'Введите {quantity} ссылок на товар, каждую на новой строке:')
+            await message.answer(f'Введите {quantity} ссылок на товар, каждую на новой строке:')
         else:
             await message.answer(f'{admin_error_quantity}')
     except ValueError:
@@ -97,7 +97,7 @@ async def enter_links(message: Message, state: FSMContext, bot: Bot):
         await db.add_product(data.get('name'), data.get('category_id'), data.get('images'), data.get('description'),
                              data.get('price'), data.get('quantity'), links)
         await state.finish()
-        await bot.send_message.answer(f'{admin_product_add}')
+        await message.answer(f'{admin_product_add}')
     else:
         await message.answer(
             f'Количество ссылок не совпадает с количеством товара. Введите {data.get("quantity")} ссылок, каждую на новой строке.')

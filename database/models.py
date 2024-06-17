@@ -32,7 +32,6 @@ class Products(Base):
     images: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text)
     price: Mapped[float] = mapped_column(Float)
-    status_product: Mapped[int] = mapped_column(Integer)
     quantity: Mapped[int] = mapped_column(Integer, default=0)
 
 

@@ -67,7 +67,7 @@ class DataBase:
         
 
     # Функция для добавления продукта
-    async def add_product(self, name, category_id, images, description, price, quantity, links, status):
+    async def add_product(self, name, category_id, images, description, price, quantity, links):
         # Функция для добавления продукта
         async with self.Session() as request:
             product = Products(
@@ -76,8 +76,7 @@ class DataBase:
                 images=images,
                 description=description,
                 price=price,
-                quantity=quantity,
-                status_product=status
+                quantity=quantity
             )
             request.add(product)
             await request.commit()
