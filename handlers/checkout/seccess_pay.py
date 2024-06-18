@@ -30,43 +30,43 @@ async def success_payment(message: Message, bot: Bot):
 
     # Проверяем тип оплаты (из корзины или напрямую)
     if payload_parts[0] == 'basket':
-        quantity = int(payload_parts[1])  # Получаем quantity из payload
-        product_ids = [int(id) for id in payload_parts[2].split(',')]
+        product_id = int(payload_parts[1])  # Получаем ID товара
+        quantity = int(payload_parts[2])  # Получаем quantity из payload
     else:
-        product_ids = [int(payload_parts[1])]
+        product_id = [int(payload_parts[1])]
+        quantity = 1
 
     links = []  # Список для хранения ссылок
 
     # Обрабатываем каждый продукт
-    for product_id in product_ids:
-        product = await db.get_product_one(product_id)
-        if product is not None:
-            product_name = product.name
-            await db.add_order(order_sum, product_name, user_id, order_status)
 
-            msg = (f'У нас новый заказ!\n\n'
-                   f'Заказчик: {user_name} (ID: {user_id})\n\n'
-                   f'Товар: \n\n {product.name}\n'
-                   f'Сумма заказа: {order_sum}')
+    product = await db.get_product_one(product_id)
+    if product is not None:
+        product_name = product.name
+        await db.add_order(order_sum, product_name, user_id, order_status)
 
-            # Отправляем сообщение всем админам
-            admins = await db.get_admins()
-            for admin in admins:
-                await bot.send_message(admin.telegram_id, msg)
+        msg = (f'У нас новый заказ!\n\n'
+               f'Заказчик: {user_name} (ID: {user_id})\n\n'
+               f'Товар: \n\n {product.name}\n'
+               f'Сумма заказа: {order_sum}')
 
-            # Получаем ссылки на товар
-            product_links = await db.get_product_links(product_id)
-            links.extend([link.link for link in product_links])
+        # Отправляем сообщение всем админам
+        admins = await db.get_admins()
+        for admin in admins:
+            await bot.send_message(admin.telegram_id, msg)
+
+        # Получаем ссылки на товар
+        product_links = await db.get_product_links(product_id)
+        links.extend([link.link for link in product_links])
 
     # Отправляем все ссылки пользователю
     if links:
         await bot.send_message(user_id, f'Вы успешно оплатили заказ!\nВот ваши ссылки:\n' + '\n'.join(links))
 
     # !!! УДАЛЯЕМ ССЫЛКИ И ТОВАРЫ ИЗ КОРЗИНЫ ПОСЛЕ ОТПРАВКИ ССЫЛОК !!!
-    for product_id in product_ids:
-        await db.delete_product_links(product_id)  # Удаляем ссылки
-        if payload_parts[0] == 'basket':
-            await db.delete_from_basket_by_quantity(user_id, product_id, quantity)  # Удаляем из корзины
+    await db.delete_product_links(product_id)  # Удаляем ссылки
+    if payload_parts[0] == 'basket':
+        await db.delete_from_basket_by_quantity(user_id, product_id, quantity)  # Удаляем из корзины
 
 
     # Очищаем корзину, если оплата была из корзины
