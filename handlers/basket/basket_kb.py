@@ -16,14 +16,9 @@ def basket_kb():
     return kb.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 
-def order_basket(order_ids, summ):  # Добавляем аргумент order_ids
+def order_basket(order_ids, summ, quantity):
     kb = InlineKeyboardBuilder()
-    kb.button(text=f'{kb_go_pay}', callback_data=f'buybasket_{summ * 100}_{"_".join(str(id) for id in order_ids)}')  # Добавляем order_ids в callback_data
+    # Исправляем передачу quantity
+    kb.button(text=f'{kb_go_pay}', callback_data=f'buybasket_{str(summ).replace(".", "_")}_{quantity}_{"_".join(str(id) for id in order_ids)}')
     kb.adjust(1)
     return kb.as_markup()
-
-# def order_basket(order_ids, summ):
-#     kb = InlineKeyboardBuilder()
-#     kb.button(text=f'{kb_go_pay}', callback_data=f'buybasket_{int(summ)}_{"_".join(str(id) for id in order_ids)}')  # Преобразуем summ в int
-#     kb.adjust(1)
-#     return kb.as_markup()

@@ -44,7 +44,7 @@ async def home_basket(message: Message, bot: Bot):
                                    reply_markup=delete_basket(msg.message_id, product.id)) 
 
         await bot.send_message(message.from_user.id, f'Общая сумма: {total_amount} руб.',
-                               reply_markup=order_basket(order_ids, total_amount))
+                               reply_markup=order_basket(order_ids, total_amount, len(products)))
     else:
         await bot.send_message(message.from_user.id, f'{basket_null}', reply_markup=start_kb())
 
@@ -79,15 +79,17 @@ async def basket_buy(message: Message, bot: Bot):
         product_list = []
         total_amount = 0
         order_ids = []
+        selected_quantity = 0  # <-- Добавляем переменную для подсчёта количества выбранных товаров
         for item in all_products:
             product = await db.get_product_one(item.product)
             product_list.append(f"{product.name} ({item.quantity} шт.)")
             total_amount += item.product_sum * item.quantity
-            order_ids.extend([item.product] * item.quantity)  # Добавляем ID продукта нужное количество раз
+            order_ids.extend([item.product] * item.quantity)
+            selected_quantity += item.quantity  # <-- Увеличиваем счётчик
         product_names = '\n'.join(product_list)
         await bot.send_message(message.from_user.id,
                                basket_order_check % (len(all_products), product_names, total_amount),
-                               reply_markup=order_basket(order_ids, total_amount))
+                               reply_markup=order_basket(order_ids, total_amount, selected_quantity))  # <-- Передаём selected_quantity
     else:
         await bot.send_message(message.from_user.id, 'Ваша корзина пуста', reply_markup=start_kb())
 
@@ -100,27 +102,28 @@ async def form_buy_basket(call: CallbackQuery):
     product_list = []
     total_amount = 0
     order_ids = []
-    for product in all_products:  # product - это объект Basket
+    for product in all_products:
         item = await db.get_product_one(product.product)
         product_list.append(item.name)
         total_amount += product.product_sum * product.quantity
-        order_ids.extend([product.product] * product.quantity)  # Используем product.product
+        order_ids.extend([product.product] * product.quantity)
     product_name = '\n'.join(product_list)
     await call.answer()
-    summ = int(call.data.split('_')[-1])
-    summ = int(summ) // 100
+    summ = float(call.data.split('_')[1].replace("_", "."))
+    quantity = int(call.data.split('_')[2])
     print(summ)
+    print(quantity)
     await call.bot.send_invoice(
         chat_id=call.from_user.id,
         title=f'Оформить заказ',
         description=f'Форма оплаты для товаров отложенных в корзине: {product_name}',
         provider_token=os.getenv('TOKEN_YOUKASSA'),
-        payload=f'basket_{"_".join(str(id) for id in order_ids)}',  # Передаем все ID продуктов
+        payload=f'basket_{quantity}_{"_".join(str(id) for id in order_ids)}',  # Добавляем quantity в payload,
         currency='rub',
         prices=[
             LabeledPrice(
                 label=f'Оплата корзины',
-                amount=summ * 100
+                amount=int(summ * 100)
             )
         ],
         start_parameter='Tg_MAGNAT_SHop',
@@ -137,13 +140,29 @@ async def form_buy_basket(call: CallbackQuery):
         request_timeout=60
     )
 
+    # Получаем ссылки на оплаченные товары
+    links_to_send = []
+    for product_id in set(order_ids):
+        print(f'ссылок links получено :', len(links_to_send))
+        links = await db.get_product_links(product_id)
+        links_to_send.extend([link.link for link in links[:quantity]])
 
-async def add_basket(self, telegram_id, product, product_sum, quantity):
-    async with self.Session() as request:
-        request.add(Basket(
-            user_telegram_id=telegram_id,
-            product=product,
-            product_sum=product_sum,
-            quantity=quantity  # Добавляем количество
-        ))
-        await request.commit()
+    # Отправляем ссылки пользователю
+    if quantity > 0:
+        for i in range(quantity):
+            await call.message.answer(links_to_send[i])
+            # print(links_to_send[i])
+
+    # Обновляем order_ids после удаления товаров из корзины
+    all_products = await db.get_basket(call.from_user.id)  # Получаем обновленный список товаров
+    order_ids = []
+    for product in all_products:
+        order_ids.extend([product.product] * product.quantity)
+
+    # Удаляем товары из корзины и ссылки из БД
+    for product_id in set(order_ids):
+        await db.delete_from_basket_by_quantity(call.from_user.id, product_id, quantity)
+
+    # Уменьшаем количество товара в каталоге
+    for product_id in set(order_ids):
+        await db.decrease_product_quantity(product_id, quantity)

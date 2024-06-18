@@ -30,7 +30,8 @@ async def success_payment(message: Message, bot: Bot):
 
     # Проверяем тип оплаты (из корзины или напрямую)
     if payload_parts[0] == 'basket':
-        product_ids = [int(id) for id in payload_parts[1].split(',')]
+        quantity = int(payload_parts[1])  # Получаем quantity из payload
+        product_ids = [int(id) for id in payload_parts[2].split(',')]
     else:
         product_ids = [int(payload_parts[1])]
 
@@ -57,17 +58,16 @@ async def success_payment(message: Message, bot: Bot):
             product_links = await db.get_product_links(product_id)
             links.extend([link.link for link in product_links])
 
-            # Удаляем ссылки из базы данных
-            await db.delete_product_links(product_id)
-        else:
-            logging.error(f"Продукт с ID {product_id} не найден")
-            await bot.send_message(user_id,
-                                   "Произошла ошибка при обработке заказа. Пожалуйста, обратитесь к администратору.")
-            return  # Прерываем обработку, если продукт не найден
-
     # Отправляем все ссылки пользователю
     if links:
         await bot.send_message(user_id, f'Вы успешно оплатили заказ!\nВот ваши ссылки:\n' + '\n'.join(links))
+
+    # !!! УДАЛЯЕМ ССЫЛКИ И ТОВАРЫ ИЗ КОРЗИНЫ ПОСЛЕ ОТПРАВКИ ССЫЛОК !!!
+    for product_id in product_ids:
+        await db.delete_product_links(product_id)  # Удаляем ссылки
+        if payload_parts[0] == 'basket':
+            await db.delete_from_basket_by_quantity(user_id, product_id, quantity)  # Удаляем из корзины
+
 
     # Очищаем корзину, если оплата была из корзины
     if payload_parts[0] == 'basket':

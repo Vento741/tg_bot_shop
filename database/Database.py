@@ -198,3 +198,42 @@ class DataBase:
         async with self.Session() as request:
             await request.execute(delete(ProductLink).where(ProductLink.product_id == product_id))
             await request.commit()
+
+
+
+    async def delete_from_basket_by_quantity(self, user_id, product_id, quantity):
+        async with self.Session() as request:
+            # Находим записи в корзине пользователя с заданным product_id
+            items_to_delete = await request.execute(
+                select(Basket)
+                .where(Basket.user_telegram_id == user_id, Basket.product == product_id)
+                .order_by(Basket.id)
+            )
+            items_to_delete = items_to_delete.scalars().all()
+
+            deleted_count = 0
+            for item in items_to_delete:
+                if deleted_count >= quantity:
+                    break
+
+                # Удаляем ссылки на товар из ProductLink
+                links_to_delete = await request.execute(
+                    select(ProductLink)
+                    .where(ProductLink.product_id == item.product)
+                    .limit(quantity - deleted_count)  # <-- Добавляем limit
+                )
+                links_to_delete = links_to_delete.scalars().all()
+                for link in links_to_delete:
+                    await request.delete(link)
+
+                await request.delete(item)
+                deleted_count += item.quantity
+
+            await request.commit()
+
+    async def decrease_product_quantity(self, product_id, quantity):
+        async with self.Session() as request:
+            product = await request.get(Products, product_id)
+            if product:
+                product.quantity -= quantity
+                await request.commit()
