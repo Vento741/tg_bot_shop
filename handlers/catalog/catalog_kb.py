@@ -1,4 +1,4 @@
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from database.Database import DataBase
 from database.models import Category
 from core.dictionary import *
@@ -28,3 +28,9 @@ def product_kb_basket(product_id):
     kb.button(text=f'{kb_delete_basket}', callback_data=f'delete_basket_{product_id}')
     kb.adjust(1)
     return kb.as_markup()
+
+
+def cancel_kb():
+    kb = ReplyKeyboardBuilder()
+    kb.button(text="Отмена")
+    return kb.as_markup(resize_keyboard=True)

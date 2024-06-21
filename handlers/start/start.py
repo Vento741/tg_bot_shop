@@ -1,5 +1,6 @@
 from aiogram import Bot, Router, F
 from aiogram.filters import Command
+from aiogram.filters import or_f
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from handlers.start.start_kb import *
@@ -34,25 +35,9 @@ async def username_input(message: Message, state: FSMContext, bot: Bot):
     db = DataBase()
     reg_data = await state.get_data()
     await db.add_user(reg_data["name"], message.from_user.id)
-    await bot.send_message(message.from_user.id, f"Вы успешно зарегистрировались", reply_markup=start_kb())
+    await bot.send_message(message.from_user.id, f"Вы зарегистрировались как {reg_data['name']}", reply_markup=start_kb())
     await state.clear()
 
-
-# @start_router.message(RegisterState.name)
-# async def username_input(message: Message, state: FSMContext, bot: Bot):
-#     await bot.send_message(message.from_user.id, f"Укажите ваш номер телефона")
-#     await state.update_data(name=message.text)
-#     await state.set_state(RegisterState.phone)
-
-
-# @start_router.message(RegisterState.phone)
-# async def phone_input(message: Message, state: FSMContext, bot: Bot):
-#     if (re.findall('^\+?[7][-\(]?\d{3}\)?-?\d{3}-?\d{2}-?\d{2}$', message.text)):
-#         db = DataBase()
-#         await state.update_data(phone=message.text)
-#         reg_data = await state.get_data()
-#         await db.add_user(reg_data["name"], reg_data["phone"], message.from_user.id)
-#         await bot.send_message(message.from_user.id, f"Вы успешно зарегистрировались", reply_markup=start_kb())
-#         await state.clear()
-#     else:
-#         await bot.send_message(message.from_user.id, f"Некорректный номер телефона")
+@start_router.message(or_f(F.text == '/politica', F.text == f'{politica}'))
+async def show_rules(message: Message):
+    await message.answer(rules_text, reply_markup=start_kb())  # Отправляем текст правил и клавиатуру

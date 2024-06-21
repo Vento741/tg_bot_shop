@@ -194,11 +194,11 @@ class DataBase:
             result = await request.execute(select(ProductLink).where(ProductLink.product_id == product_id))
             return result.scalars().all()
 
-    async def delete_product_links(self, product_id):
-        async with self.Session() as request:
-            await request.execute(delete(ProductLink).where(ProductLink.product_id == product_id))
-            await request.commit()
 
+    async def delete_product_link_by_link(self, link):
+        async with self.Session() as request:
+            await request.execute(delete(ProductLink).where(ProductLink.link == link))
+            await request.commit()
 
 
     async def delete_from_basket_by_quantity(self, user_id, product_id, quantity):
@@ -216,15 +216,14 @@ class DataBase:
                 if deleted_count >= quantity:
                     break
 
-                # Удаляем ссылки на товар из ProductLink
+                # Удаляем только нужное количество ссылок для каждой записи в корзине
                 links_to_delete = await request.execute(
                     select(ProductLink)
                     .where(ProductLink.product_id == item.product)
-                    .limit(quantity - deleted_count)  # <-- Добавляем limit
                 )
                 links_to_delete = links_to_delete.scalars().all()
-                for link in links_to_delete:
-                    await request.delete(link)
+                for i in range(min(item.quantity, quantity - deleted_count)):
+                    await request.delete(links_to_delete[i])
 
                 await request.delete(item)
                 deleted_count += item.quantity
@@ -237,3 +236,14 @@ class DataBase:
             if product:
                 product.quantity -= quantity
                 await request.commit()
+
+    async def get_basket_quantity(self, user_id, product_id):
+        async with self.Session() as request:
+            result = await request.execute(
+                select(Basket.quantity)
+                .where(Basket.user_telegram_id == user_id, Basket.product == product_id)
+            )
+            return result.scalar()
+    
+
+    

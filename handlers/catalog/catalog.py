@@ -8,6 +8,7 @@ from aiogram.fsm.context import FSMContext
 
 from core.dictionary import *
 from database.Database import DataBase
+from handlers.start.start_kb import start_kb
 from handlers.state.states import BuyStates, BasketStates
 
 
@@ -74,11 +75,59 @@ async def process_quantity_basket(message: Message, state: FSMContext):
         if product.quantity >= quantity:
             await db.add_basket(message.from_user.id, product_id, product.price, quantity)
             await state.clear()
-            await message.answer(f"Добавлено {quantity} шт. товара {product.name} в корзину.")
+            await message.answer(f"Добавлено {quantity} шт. товара {product.name} в корзину.👍", reply_markup=start_kb())
         else:
-            await message.answer(f"Недостаточно товара на складе. Доступно: {product.quantity} шт.")
+            await message.answer(f"Недостаточно товара на складе. Доступно: {product.quantity} шт.\n\nОбязательно проверьте позже, скоро завезу 😌")
     except ValueError:
-        await message.answer("Некорректное количество. Введите целое число.")
+        await message.answer("Некорректное количество. Введите целое число.", reply_markup=start_kb())
+
+
+# Обработчик состояния ввода количества для "Купить в один клик"
+@catalog_router.message(BuyStates.ENTER_QUANTITY)
+async def process_quantity_buy_one(message: Message, state: FSMContext):
+    try:
+        quantity = int(message.text)
+        data = await state.get_data()
+        product_id = data.get('product_id')
+        db = DataBase()
+        product = await db.get_product_one(product_id)
+
+        if product.quantity >= quantity:
+            # Отправляем инвойс для оплаты
+            await message.answer("Переходим к оплате...")
+            await message.bot.send_invoice(
+                chat_id=message.from_user.id,
+                title=f'Купить {product.name}',
+                description=f'{product.description}',
+                provider_token=os.getenv('TOKEN_YOUKASSA'),
+                payload=f'product_{product_id}_{quantity}',  # Передаём ID товара и quantity
+                currency='rub',
+                prices=[
+                    LabeledPrice(
+                        label=f'Оплата товара',
+                        amount=int(product.price * quantity * 100)  # Рассчитываем сумму
+                    )
+                ],
+                start_parameter='buy_one_click',
+                provider_data=None,
+                need_name=True,
+                need_phone_number=False,
+                need_email=False,
+                need_shipping_address=False,
+                is_flexible=False,
+                disable_notification=False,
+                protect_content=False,
+                reply_to_message_id=None,
+                reply_markup=None,
+                request_timeout=60
+            )
+            await state.clear()
+        else:
+            await message.answer(f"Недостаточно товара на складе. Доступно: {product.quantity} шт.\n\nОбязательно проверьте позже, скоро завезу 😌")
+    except ValueError:
+        await message.answer("Некорректное количество. Введите целое число.", reply_markup=start_kb())
+
+
 
 
 # Обработчик нажатия на удалить из корзины
@@ -92,25 +141,3 @@ async def delete_basket(call: CallbackQuery):
     await call.message.edit_reply_markup(reply_markup= await product_kb(product_id))
     await call.answer()
 
-
-# Функция для отправки информации о заказе
-async def send_order_info(message: Message, bot: Bot, product: Products, quantity: int, order_sum: float):
-    links = [product.key_product] * quantity  # Создаем список ссылок
-    await bot.send_message(message.from_user.id,
-                           f"Спасибо за покупку!\n"
-                           f"Товар: {product.name}\n"
-                           f"Количество: {quantity}\n"
-                           f"Сумма: {order_sum} руб.\n"
-                           f"Ссылки:\n" + "\n".join(links))
-    # Отправка уведомлений администраторам
-    db = DataBase()
-    admins = await db.get_admins()
-    for admin in admins:
-        await bot.send_message(
-            admin.telegram_id,
-            f"Новый заказ!\n\n"
-            f"Заказчик: {message.from_user.full_name} (ID: {message.from_user.id})\n"
-            f"Товар: {product.name}\n"
-            f"Количество: {quantity}\n"
-            f"Сумма: {order_sum} руб."
-        )    

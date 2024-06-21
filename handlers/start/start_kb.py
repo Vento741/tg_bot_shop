@@ -10,8 +10,10 @@ def register_kb():
 
 def start_kb():
     kb = ReplyKeyboardBuilder()
-    kb.button(text=start_catalog_text)
-    kb.button(text=start_order_text)
-    kb.button(text=start_basket_text)
+    kb.button(text=f'{start_catalog_text}')
+    kb.button(text=f'{start_basket_text}')
+    kb.adjust(2)
+    kb.button(text=f'{start_order_text}')
+    kb.button(text=f'{politica}')
 
     return kb.as_markup(resize_keyboard=True)

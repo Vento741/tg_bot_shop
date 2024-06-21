@@ -28,49 +28,47 @@ async def success_payment(message: Message, bot: Bot):
     user_name = message.successful_payment.order_info.name
     db = DataBase()
 
-    # Проверяем тип оплаты (из корзины или напрямую)
-    if payload_parts[0] == 'basket':
-        product_id = int(payload_parts[1])  # Получаем ID товара
-        quantity = int(payload_parts[2])  # Получаем quantity из payload
-    else:
-        product_id = [int(payload_parts[1])]
-        quantity = 1
+    # Получаем ID товара и количество
+    product_id = int(payload_parts[1])
+    quantity = int(payload_parts[2]) if len(payload_parts) > 2 else 1  # Получаем quantity, если она есть в payload
 
-    links = []  # Список для хранения ссылок
-
-    # Обрабатываем каждый продукт
-
+    # Обрабатываем товар
     product = await db.get_product_one(product_id)
     if product is not None:
         product_name = product.name
         await db.add_order(order_sum, product_name, user_id, order_status)
 
+        # Получаем ссылки на оплаченные товары
+        links_to_send = []
+        links = await db.get_product_links(product_id)
+        links_to_send.extend([link.link for link in links[:quantity]])
+
+        # Отправляем ссылки пользователю
+        await bot.send_message(user_id, f"Спасибо за покупку!\n"
+                                       f"Товар: {product.name}\n"
+                                       f"Количество: {quantity}\n"
+                                       f"Сумма: {order_sum} руб.\n"
+                                       f"Ссылки:\n" + "\n".join(links_to_send))
+
+        # Отправляем уведомление администраторам
         msg = (f'У нас новый заказ!\n\n'
                f'Заказчик: {user_name} (ID: {user_id})\n\n'
-               f'Товар: \n\n {product.name}\n'
+               f'Товар: \n {product.name}\n'
+               f'Количество: {quantity}\n'  # Добавляем \n
                f'Сумма заказа: {order_sum}')
 
-        # Отправляем сообщение всем админам
         admins = await db.get_admins()
         for admin in admins:
             await bot.send_message(admin.telegram_id, msg)
 
-        # Получаем ссылки на товар
-        product_links = await db.get_product_links(product_id)
-        links.extend([link.link for link in product_links])
+        # Удаляем товары из корзины, если заказ был из корзины
+        if payload_parts[0] == 'basket':
+            await db.delete_from_basket_by_quantity(user_id, product_id, quantity)
 
-    # Отправляем все ссылки пользователю
-    if links:
-        await bot.send_message(user_id, f'Вы успешно оплатили заказ!\nВот ваши ссылки:\n' + '\n'.join(links))
+        # Уменьшаем количество товара в каталоге
+        await db.decrease_product_quantity(product_id, quantity)
 
-    # !!! УДАЛЯЕМ ССЫЛКИ И ТОВАРЫ ИЗ КОРЗИНЫ ПОСЛЕ ОТПРАВКИ ССЫЛОК !!!
-    await db.delete_product_links(product_id)  # Удаляем ссылки
-    if payload_parts[0] == 'basket':
-        await db.delete_from_basket_by_quantity(user_id, product_id, quantity)  # Удаляем из корзины
-
-
-    # Очищаем корзину, если оплата была из корзины
-    if payload_parts[0] == 'basket':
-        await db.delete_basket_all(user_id)
+        for link in links_to_send:
+            await db.delete_product_link_by_link(link)  # Удаляем каждую отправленную ссылку
 
     logging.info(f"Успешная оплата от пользователя {user_id}. Сумма: {order_sum}")
