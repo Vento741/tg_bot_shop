@@ -6,6 +6,9 @@ import os
 
 class DataBase:
     def __init__(self):
+        """
+        Инициализация подключения к базе данных
+        """
         self.dp_host = os.getenv("DB_HOST")
         self.dp_user = os.getenv("DB_USER")
         self.dp_password = os.getenv("DB_PASSWORD")
@@ -15,8 +18,10 @@ class DataBase:
         self.Session = async_sessionmaker(bind=self.async_engine, class_=AsyncSession)
     
 
-    # Функция для удаления и создания базы данных
     async def drop_and_create_db(self):
+        """
+        Функция для удаления и создания базы данных
+        """
         async with self.async_engine.begin() as conn:
             # Удаляем все таблицы
             await conn.run_sync(Base.metadata.drop_all)
@@ -24,17 +29,20 @@ class DataBase:
             await conn.run_sync(Base.metadata.create_all)
 
     
-    # Функции для работы с пользователями
     async def get_user(self, user_id):
+        """
+        Получить пользователя по ID
+        """
         # Функция для получения пользователя
         async with self.Session() as request:
             result = await request.execute(select(User).where(User.telegram_id == user_id))
         return result.scalar()
     
 
-    # Функция для добавления пользователя
     async def add_user(self, name, telegram_id):
-        # Функция для добавления пользователя
+        """
+        Функция для добавления пользователя
+        """
         async with self.Session() as request:
             request.add(User(
                 username=name,
@@ -43,23 +51,28 @@ class DataBase:
             await request.commit()
 
     
-    # Функции для работы с админами
     async def get_admin(self, admin_id):
+        """
+        Получить админа по ID
+        """
         async with self.Session() as request:
             result = await request.execute(select(Admin).where(Admin.telegram_id == admin_id))  # Исправлено
             return result.scalar()
     
 
-    # Функция для получения всех админов
     async def get_admins(self):
-        # Функция для получения всех админов
+        """
+        Получить всех админов
+        """
         async with self.Session() as request:
             result = await request.execute(select(Admin))
             return result.scalars().all()
 
 
-    # Функции для работы с продуктами
     async def get_table(self, table_name):
+        """
+        Функция для получения таблиц
+        """
         # Функция для получения таблиц
         async with self.Session() as request:
             result = await request.execute(select(table_name))
@@ -72,7 +85,7 @@ class DataBase:
         async with async_session() as session:
             yield session
 
-    # Функция для добавления продукта
+
     async def add_product(self, name, category_id, images, description, price, quantity, links):
         """Функция для добавления продукта."""
         async for session in self.get_async_session():  # Получаем асинхронную сессию
@@ -93,17 +106,16 @@ class DataBase:
                     session.add(ProductLink(product_id=product.id, link=link))
                 await session.commit()  # Коммитим изменения
     
-    # Функции для работы с продуктами
+
     async def get_product(self, category_id):
-        # Функция для получения продуктов
+        """Функция для получения продуктов."""
         async with self.Session() as request:
             result = await request.execute(select(Products).where(Products.category_id == category_id))
         return result.scalars().all()
     
 
-    # Функция для проверки наличия продукта в корзине
     async def check_basket(self, user_id, product_id):
-        # Функция для проверки наличия продукта в корзине
+        """Функция для проверки наличия продукта в корзине."""
         async with self.Session() as request:
             result = await request.execute(select(Basket).where(
                                            (Basket.user_telegram_id == user_id) & 
@@ -112,17 +124,15 @@ class DataBase:
         return result.scalars().all()
     
 
-    # Функции для работы с продуктами
     async def get_product_one(self, id):
-        # Функция для получения продукта
+        """Функция для получения одного продукта."""
         async with self.Session() as request:
             result = await request.execute(select(Products).where(Products.id == id))
         return result.scalar()
     
 
-    # Функции для работы с корзиной
     async def add_basket(self, telegram_id, product, product_price, quantity):
-        # Функция для добавления продукта в корзину
+        """Функция для добавления продукта в корзину."""
         async with self.Session() as request:
             request.add(Basket(
                 user_telegram_id=telegram_id,
@@ -133,26 +143,23 @@ class DataBase:
             await request.commit()
 
     
-    # Функция для удаления продукта из корзины
     async def delete_basket_one(self, basket_id, user_id):
-    # Функция для удаления продукта из корзины
+        """Функция для удаления одного продукта из корзины."""
         async with self.Session() as request:
             await request.execute(delete(Basket).where(Basket.id == basket_id, 
                                                     Basket.user_telegram_id == user_id))
             await request.commit()
 
 
-    # Функция для удаления всех продуктов из корзины
     async def delete_basket_all(self, user_id):
-        # Функция для удаления всех продуктов из корзины
+        """Функция для удаления всех продуктов из корзины."""
         async with self.Session() as request:
             await request.execute(delete(Basket).where(Basket.user_telegram_id == user_id))
             await request.commit()
 
     
-    # Функция для добавления заказа
     async def add_order(self, order_sum, product_id, user_id, order_status):
-        # Функция для добавления заказа
+        """Функция для добавления заказа."""
         async with self.Session() as request:
             request.add(Order(
                 sum_order=order_sum,
@@ -163,17 +170,15 @@ class DataBase:
             await request.commit()
 
 
-    # Функция для получения корзины
     async def get_basket(self, user_id):
-        # Функция для получения корзины
+        """Функция для получения корзины."""
         async with self.Session() as request:
             result = await request.execute(select(Basket).where(Basket.user_telegram_id == user_id))
         return result.scalars().all()
     
 
-    # Функция для получения заказов
     async def get_orders(self, user_id):
-        # Функция для получения заказов
+        """Функция для получения заказов."""
         async with self.Session() as request:
             result = await request.execute(select(Order).where(
                             Order.user_telegram_id == user_id))
@@ -181,6 +186,7 @@ class DataBase:
     
 
     async def update_product_links(self, product_id, new_links):
+        """Функция для обновления ссылок на продукт."""
         async with self.Session() as request:
             await request.execute(
                 update(Products)
@@ -190,18 +196,21 @@ class DataBase:
             await request.commit()
 
     async def get_product_links(self, product_id):
+        """Функция для получения ссылок на продукт."""
         async with self.Session() as request:
             result = await request.execute(select(ProductLink).where(ProductLink.product_id == product_id))
             return result.scalars().all()
 
 
     async def delete_product_link_by_link(self, link):
+        """Функция для удаления ссылки на продукт."""
         async with self.Session() as request:
             await request.execute(delete(ProductLink).where(ProductLink.link == link))
             await request.commit()
 
 
     async def delete_from_basket_by_quantity(self, user_id, product_id, quantity):
+        """Функция для удаления продукта из корзины по количеству."""
         async with self.Session() as request:
             # Находим записи в корзине пользователя с заданным product_id
             items_to_delete = await request.execute(
@@ -216,21 +225,13 @@ class DataBase:
                 if deleted_count >= quantity:
                     break
 
-                # Удаляем только нужное количество ссылок для каждой записи в корзине
-                links_to_delete = await request.execute(
-                    select(ProductLink)
-                    .where(ProductLink.product_id == item.product)
-                )
-                links_to_delete = links_to_delete.scalars().all()
-                for i in range(min(item.quantity, quantity - deleted_count)):
-                    await request.delete(links_to_delete[i])
-
-                await request.delete(item)
+                await request.delete(item)  # Удаляем запись из корзины
                 deleted_count += item.quantity
 
             await request.commit()
 
     async def decrease_product_quantity(self, product_id, quantity):
+        """Функция для уменьшения количества продукта в каталоге."""
         async with self.Session() as request:
             product = await request.get(Products, product_id)
             if product:
@@ -238,6 +239,7 @@ class DataBase:
                 await request.commit()
 
     async def get_basket_quantity(self, user_id, product_id):
+        """Функция для получения количества продукта в корзине."""
         async with self.Session() as request:
             result = await request.execute(
                 select(Basket.quantity)

@@ -6,7 +6,6 @@ from aiogram.fsm.context import FSMContext
 from handlers.start.start_kb import *
 from handlers.start.register_state import *
 from database.Database import DataBase
-import re
 
 
 start_router = Router()

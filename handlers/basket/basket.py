@@ -41,7 +41,7 @@ async def home_basket(message: Message, bot: Bot):
             await bot.send_message(message.from_user.id, dictionary_card_product % (item.description, item.price * quantity),
                                    reply_markup=delete_basket(msg.message_id, product.id))
 
-            # Отправляем кнопку "Оформить заказ" для каждого товара
+            # Отправляем кнопку "Перейти к оплате" для каждого товара
         for product_id, data in grouped_products.items():
             item = data['item']
             quantity = data['quantity']

@@ -61,14 +61,17 @@ async def success_payment(message: Message, bot: Bot):
         for admin in admins:
             await bot.send_message(admin.telegram_id, msg)
 
-        # Удаляем товары из корзины, если заказ был из корзины
-        if payload_parts[0] == 'basket':
-            await db.delete_from_basket_by_quantity(user_id, product_id, quantity)
+        # Удаляем ссылки из БД (для всех типов покупок)
+        links_to_delete = await db.get_product_links(product_id)
+        for i in range(quantity):
+            if links_to_delete:
+                link_to_delete = links_to_delete.pop(0)
+                await db.delete_product_link_by_link(link_to_delete.link)
+
+        # Удаляем товар из корзины
+        await db.delete_from_basket_quantity(user_id, product_id, quantity)
 
         # Уменьшаем количество товара в каталоге
         await db.decrease_product_quantity(product_id, quantity)
-
-        for link in links_to_send:
-            await db.delete_product_link_by_link(link)  # Удаляем каждую отправленную ссылку
 
     logging.info(f"Успешная оплата от пользователя {user_id}. Сумма: {order_sum}")

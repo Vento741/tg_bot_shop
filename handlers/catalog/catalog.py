@@ -3,7 +3,7 @@ from aiogram import Bot, Router, F
 from aiogram.filters import or_f
 from aiogram.types import CallbackQuery, Message, LabeledPrice
 from database.models import Products
-from handlers.catalog.catalog_kb import category_kb, product_kb, product_kb_basket
+from handlers.catalog.catalog_kb import cancel_kb, category_kb, product_kb, product_kb_basket
 from aiogram.fsm.context import FSMContext
 
 from core.dictionary import *
@@ -59,7 +59,7 @@ async def add_basket(call: CallbackQuery, state: FSMContext):
     product_id = int(call.data.split('_')[-1])
     await state.set_state(BasketStates.ENTER_QUANTITY)
     await state.update_data(product_id=product_id)
-    await call.message.answer("Введите количество товара:")
+    await call.message.answer("Введите количество товара:", reply_markup=cancel_kb())
 
 
 # Обработчик состояния ввода количества для корзины
@@ -123,7 +123,7 @@ async def process_quantity_buy_one(message: Message, state: FSMContext):
             )
             await state.clear()
         else:
-            await message.answer(f"Недостаточно товара на складе. Доступно: {product.quantity} шт.\n\nОбязательно проверьте позже, скоро завезу 😌")
+            await message.answer(f"Недостаточно товара на складе. Доступно: {product.quantity} шт.\n\nОбязательно проверьте позже, скоро завезу 😌", reply_markup=start_kb())
     except ValueError:
         await message.answer("Некорректное количество. Введите целое число.", reply_markup=start_kb())
 
